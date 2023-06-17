@@ -93,7 +93,7 @@ module sc_lifo_tb();
                 @(posedge clk);
                 #1;
                 rd = 1'b0;
-                repeat($urandom_range(0,10)) @ (posedge clk);
+                repeat($urandom_range(10,0)) @ (posedge clk);
             end
             else begin
                 @(posedge clk);
