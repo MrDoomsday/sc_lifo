@@ -58,27 +58,39 @@ module sc_lifo_tb();
         reset_n = 1'b1;
         repeat(10) @ (posedge clk);
 
-        repeat(100000) @ (posedge clk);
+        repeat(1000000) @ (posedge clk);
         $display("***TEST PASSED***");
         $stop();
 
     end
 
-
+reg [data_width-1:0] queue_transaction [$];
 
 //transaction generator
     initial begin
         wait(reset_n == 1'b1);
         @(posedge clk);
         forever begin
-            if(!full) begin
-                data_in = $urandom();
-                wr = 1'b1;
-                @(posedge clk);
-                #2;
-                wr = 1'b0;
+            repeat(100000) begin
+                if(!full) begin
+                    data_in = $urandom();
+                    wr = $urandom_range(1,0);
+                    @(posedge clk);
+                    #1;
+                    if(wr) begin
+                        queue_transaction.push_back(data_in);
+                        $display("Data write in queue %0x", data_in);
+                    end
+                    wr = 1'b0;
+                end
+                else begin
+                    wr = 1'b0;
+                    @(posedge clk);
+                end
             end
-            repeat($urandom_range(2,0)) @(posedge clk);
+
+            wait(empty == 1'b1);
+            repeat(10) @ (posedge clk);
         end
     end
 
@@ -87,13 +99,24 @@ module sc_lifo_tb();
 
 //check transaction
     initial begin
+        repeat(1000) @(posedge clk);
+        wait(full == 1'b1);
         forever begin
             if(!empty) begin
-                rd = 1'b1;
+                rd = $urandom_range(1,0);
                 @(posedge clk);
-                #1;
+                #2;
+                if(rd == 1'b1) begin
+                    if(data_out == queue_transaction.pop_back()) begin
+                        $display("Transaction OK");
+                    end
+                    else begin
+                        $display("Transaction %0x FAILED", data_out);
+                        $display("***TEST FAILED***");
+                        $stop();
+                    end
+                end
                 rd = 1'b0;
-                repeat($urandom_range(10,0)) @ (posedge clk);
             end
             else begin
                 @(posedge clk);
@@ -104,6 +127,53 @@ module sc_lifo_tb();
 
 
 
-
+//  Covergroup: cg_write
+//
+    covergroup cg_wr_lifo @(posedge clk);
+        //  Coverpoint: c1
+        c1: coverpoint wr {
+            bins b1 = (0=>0=>0);
+            bins b2 = (0=>0=>1);
+            bins b3 = (0=>1=>0);
+            bins b4 = (0=>1=>1);
+            bins b5 = (1=>0=>0);
+            bins b6 = (1=>0=>1);
+            bins b7 = (1=>1=>0);
+            bins b8 = (1=>1=>1);
+        }
+    endgroup
+    
+    
+    covergroup cg_rd_lifo @ (posedge clk);
+        c1: coverpoint rd {
+            bins b1 = (0=>0=>0);
+            bins b2 = (0=>0=>1);
+            bins b3 = (0=>1=>0);
+            bins b4 = (0=>1=>1);
+            bins b5 = (1=>0=>0);
+            bins b6 = (1=>0=>1);
+            bins b7 = (1=>1=>0);
+            bins b8 = (1=>1=>1);
+        }
+    endgroup
+    
+    
+    covergroup cg_full_lifo @ (posedge clk);
+        c1: coverpoint full {
+            bins b1 = (0=>0=>0);
+            bins b2 = (0=>0=>1);
+            bins b3 = (0=>1=>0);
+            bins b4 = (0=>1=>1);
+            bins b5 = (1=>0=>0);
+            ignore_bins b6 = (1=>0=>1);//not check in coverage
+            bins b7 = (1=>1=>0);
+            bins b8 = (1=>1=>1);
+        }
+    endgroup
+    
+    
+    cg_wr_lifo cg_wr_lifo_inst = new();
+    cg_rd_lifo cg_rd_lifo_inst = new();
+    cg_full_lifo cg_full_lifo_inst = new();
 
 endmodule
