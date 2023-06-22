@@ -64,7 +64,7 @@ module sc_lifo_tb();
 
     end
 
-
+reg [data_width-1:0] queue_transaction [$];
 
 //transaction generator
     initial begin
@@ -76,7 +76,11 @@ module sc_lifo_tb();
                     data_in = $urandom();
                     wr = $urandom_range(1,0);
                     @(posedge clk);
-                    #2;
+                    #1;
+                    if(wr) begin
+                        queue_transaction.push_back(data_in);
+                        $display("Data write in queue %0x", data_in);
+                    end
                     wr = 1'b0;
                 end
                 else begin
@@ -95,13 +99,24 @@ module sc_lifo_tb();
 
 //check transaction
     initial begin
+        repeat(1000) @(posedge clk);
+        wait(full == 1'b1);
         forever begin
             if(!empty) begin
-                rd = 1'b1;
+                rd = $urandom_range(1,0);
                 @(posedge clk);
-                #1;
+                #2;
+                if(rd == 1'b1) begin
+                    if(data_out == queue_transaction.pop_back()) begin
+                        $display("Transaction OK");
+                    end
+                    else begin
+                        $display("Transaction %0x FAILED", data_out);
+                        $display("***TEST FAILED***");
+                        $stop();
+                    end
+                end
                 rd = 1'b0;
-                repeat($urandom_range(10,0)) @ (posedge clk);
             end
             else begin
                 @(posedge clk);
